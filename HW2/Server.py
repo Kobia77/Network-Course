@@ -1,7 +1,7 @@
 import socket
 import threading
 
-connections = {}
+#connections = {}
 ports = [1010, 1020, 1030, 1040, 1050]
 chosenPort = ports[int(input("Pick a port number(0-4): "))]
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
