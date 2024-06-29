@@ -18,6 +18,16 @@ header=struct.pack('bbhh',2,1,len(clientName),0)
 sock.send(header)
 sock.send(clientName.encode())
 
+def waitForMsg(sock):
+    while True:
+        incomingHeader = sock.recv(6)
+        type,subtype,length,sublen = struct.unpack('>bbhh',incomingHeader)
+        if type==3:
+            sender,rest = sock.recv(length).decode().split('\0')
+            receiver,text=rest.split(' ',1)
+            print(sender+": "+text)
+
+threading.Thread(target=waitForMsg,args=(sock,)).start()
 
 while True:
     
@@ -28,12 +38,8 @@ while True:
 
 
 
-    incomingHeader = sock.recv(6)
-    type,subtype,length,sublen = struct.unpack('>bbhh',incomingHeader)
-    print("i got msg")
-    sender,rest = sock.recv(length).decode().split('\0')
-    receiver,text=rest.split(' ',1)
-    print(sender+": "+text)
+    
+    
 
 
   
