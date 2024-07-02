@@ -26,8 +26,12 @@ def respond_to_client(conn_socket, client_address):
 
         if type==0:
             if subtype==0:
+                print("ze kobi\n")
                 newPort=int(conn_socket.recv(4).decode())
-                myServerConnections[newPort]=conn_socket
+                dualPort = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)#added two lines here
+                dualPort.connect(('127.0.0.1',newPort))
+                print(dualPort)
+                myServerConnections[newPort]=dualPort
                 print(list(myServerConnections.keys()))
                 myConnectionsStr=""
                 for server in myServerConnections:
@@ -46,35 +50,51 @@ def respond_to_client(conn_socket, client_address):
                 print(list(clients.keys()))
 
         if type==3:
+
             print("forwarding msg to a client")
             x=conn_socket.recv(length).decode()
             print(x)
-            receiver,text=x.split(' ',1)
-            sender=getKeysByValue(clients,conn_socket)
-            msg = sender+'\0'+receiver+' '+text   
 
+            if subtype==0:
+                receiver,text=x.split(' ',1)
+                sender=getKeysByValue(clients,conn_socket)
+                msg = sender+'\0'+receiver+' '+text   
+                if receiver not in clients:
+                    header=struct.pack('>bbhh',3,1,len(msg),len(sender))
+                    broadcast = msg.encode()
+                    for server in myServerConnections:
+                        if server!=chosenPort:
+                            myServerConnections[server].send(header)
+                            myServerConnections[server].send(broadcast)          
+                else:
+                    header=struct.pack('>bbhh',3,0,len(msg),len(sender))
+                    print("packed the msg")
+                    clients[receiver].send(header)
+                    clients[receiver].send(msg.encode())
+                    print("sent the msg")
 
-            header=struct.pack('>bbhh',3,0,len(msg),len(sender))
-            print("packed the msg")
-            clients[receiver].send(header)
-            clients[receiver].send(msg.encode())
-            print("sent the msg")
-
-            #kobi hey
-            # sender adi 
-
-
-
-
-
+            if subtype==1:
+                sender,rest = x.split('\0')
+                receiver,text=rest.split(' ',1)
+                msg = sender+'\0'+receiver+' '+text 
+                if receiver in clients:
+                    header=struct.pack('>bbhh',3,0,len(msg),len(sender))
+                    print("packed the msg")
+                    clients[receiver].send(header)
+                    clients[receiver].send(msg.encode())
+                    print("sent the msg")
+            
         if type==8:
             incomingData = conn_socket.recv(4)
             portForUpdate=int(incomingData.decode())
-            myServerConnections[portForUpdate] = conn_socket
-            print("my dict is: ",list(myServerConnections.keys()))
+            print("port for update:\n",portForUpdate,"\n")
+            dualPort = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)#added 2 lines here
+            dualPort.connect(('127.0.0.1',portForUpdate))
+            myServerConnections[portForUpdate] = dualPort
+            print("valuessssssss\n",myServerConnections)
+            # print("my dict is: ",list(myServerConnections.keys()))
 
 
-# 1000:(127.0.0.1,4321)
 
 def splitNewString(longString):
     portsToConnect=longString.split('\0')
@@ -87,8 +107,11 @@ def splitNewString(longString):
 
 def connectToOtherServers(portsList):
     nportsList = [int(num) for num in portsList]
+    # newPort = int(conn.recv(4).decode())
+    # dualPort = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
+    # dualPort.connect(('127.0.0.1',newPort))
+
     for port in nportsList:
-        #print(port," ",chosenPort)
         if port!=chosenPort:
             tempsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
             tempsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -109,7 +132,9 @@ def actAsClient():
                 tempsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 tempsock.connect(('127.0.0.1', port))
                 myServerConnections[port]=tempsock
-                print(list(myServerConnections.keys()))
+                #print(list(myServerConnections.keys()))
+                print("ze rony\n")
+                print(myServerConnections)
                 infoAsk = struct.pack('>bbhh',0,0,0,0)
                 tempsock.send(infoAsk)
                 tempsock.send(str(chosenPort).encode())
