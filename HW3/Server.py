@@ -1,3 +1,7 @@
+#By:
+#Kobi Alen - 318550985
+#Matan Kahlon - 316550458
+
 import socket
 import threading
 import struct
@@ -21,41 +25,39 @@ def respond_to_client(conn_socket, client_address):
         print("waiting for recv\n")
         data = conn_socket.recv(6)
         type,subtype,length,sublen = struct.unpack('>bbhh',data)
-        print("recv type:",type," subtype: ",subtype)
+        print("recv type:",type," subtype: ",subtype,"\n")
 
 
         if type==0:
             if subtype==0:
-                print("ze kobi\n")
                 newPort=int(conn_socket.recv(4).decode())
                 dualPort = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)#added two lines here
                 dualPort.connect(('127.0.0.1',newPort))
-                print(dualPort)
                 myServerConnections[newPort]=dualPort
-                print(list(myServerConnections.keys()))
+
                 myConnectionsStr=""
                 for server in myServerConnections:
                     myConnectionsStr+= '127.0.0.1'+':'+str(server)+"\0"
                 outGoingData1 = struct.pack('>bbhh',1,0,len(myConnectionsStr)-1,0)
                 conn_socket.send(outGoingData1)
                 conn_socket.send(myConnectionsStr.encode())
+                print("sent ports list, my current list:\n")
+                print(list(myServerConnections.keys()),"\n")
             if subtype==1:
                 pass
 
         if type==2:
             if subtype==1:
-                print("handling new client")
+                print("handling new client\n")
                 newClientName=conn_socket.recv(length).decode()
                 clients[newClientName]=conn_socket
-                print(list(clients.keys()))
+                print("clients list updated:\n")
+                print(list(clients.keys()),"\n")
 
         if type==3:
-
-            print("forwarding msg to a client")
+            print("forwarding msg to a client\n")
             x=conn_socket.recv(length).decode()
-            print(x)
-
-            if subtype==0:
+            if subtype==0:#getting a msg from a client
                 receiver,text=x.split(' ',1)
                 sender=getKeysByValue(clients,conn_socket)
                 msg = sender+'\0'+receiver+' '+text   
@@ -68,33 +70,28 @@ def respond_to_client(conn_socket, client_address):
                             myServerConnections[server].send(broadcast)          
                 else:
                     header=struct.pack('>bbhh',3,0,len(msg),len(sender))
-                    print("packed the msg")
+                    print("packed the msg\n")
                     clients[receiver].send(header)
                     clients[receiver].send(msg.encode())
-                    print("sent the msg")
-
-            if subtype==1:
+                    print("sent the msg\n")
+            if subtype==1:#getting a msg from another server
                 sender,rest = x.split('\0')
                 receiver,text=rest.split(' ',1)
                 msg = sender+'\0'+receiver+' '+text 
                 if receiver in clients:
                     header=struct.pack('>bbhh',3,0,len(msg),len(sender))
-                    print("packed the msg")
+                    print("packed the msg\n")
                     clients[receiver].send(header)
                     clients[receiver].send(msg.encode())
-                    print("sent the msg")
+                    print("sent the msg\n")
             
         if type==8:
             incomingData = conn_socket.recv(4)
             portForUpdate=int(incomingData.decode())
-            print("port for update:\n",portForUpdate,"\n")
-            dualPort = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)#added 2 lines here
+            print("port for update: ",portForUpdate,"\n")
+            dualPort = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
             dualPort.connect(('127.0.0.1',portForUpdate))
             myServerConnections[portForUpdate] = dualPort
-            print("valuessssssss\n",myServerConnections)
-            # print("my dict is: ",list(myServerConnections.keys()))
-
-
 
 def splitNewString(longString):
     portsToConnect=longString.split('\0')
@@ -106,11 +103,8 @@ def splitNewString(longString):
 
 
 def connectToOtherServers(portsList):
-    nportsList = [int(num) for num in portsList]
-    # newPort = int(conn.recv(4).decode())
-    # dualPort = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
-    # dualPort.connect(('127.0.0.1',newPort))
 
+    nportsList = [int(num) for num in portsList]
     for port in nportsList:
         if port!=chosenPort:
             tempsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
@@ -133,28 +127,25 @@ def actAsClient():
                 tempsock.connect(('127.0.0.1', port))
                 myServerConnections[port]=tempsock
                 #print(list(myServerConnections.keys()))
-                print("ze rony\n")
-                print(myServerConnections)
+                
                 infoAsk = struct.pack('>bbhh',0,0,0,0)
                 tempsock.send(infoAsk)
                 tempsock.send(str(chosenPort).encode())
-                print("sent info and chosenport\n")
+                print("asked for info and sent chosenport\n")
                 firstRecieved = tempsock.recv(6)
                 type,subtype,length,sublen=struct.unpack('>bbhh',firstRecieved)
                 secondRecieved = tempsock.recv(length)
                 secondRecieved=secondRecieved.decode()
                 portsToAdd=splitNewString(secondRecieved)#handling the other servers list
+                print("got a list of ports to add\n")
                 connectToOtherServers(portsToAdd)
-                print(list(myServerConnections.keys()))
-
+                print(list(myServerConnections.keys()),"\n")
                 break
             except ConnectionRefusedError:
                 print(f'Connection failed to port: {port}')
 
-
 #threading.Thread(target=actAsClient(), args=()).start()
 actAsClient()
-
 
 while True:
     conn, client_address = sock.accept()
