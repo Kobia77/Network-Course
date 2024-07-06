@@ -15,6 +15,7 @@ sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 sock.connect(('127.0.0.1', chosenPort))
 
 server_list_received = threading.Event()
+stop_event = threading.Event()########
 
 def clientRegister(connSock, name,connPort):
     try:
@@ -25,13 +26,27 @@ def clientRegister(connSock, name,connPort):
         print("asking my server for list.")
         serverAsk = struct.pack('>bbhh', 5, 0, 0, 0)
         connSock.send(serverAsk)
+    except ConnectionAbortedError as e:
+        print("closed a connection")
     except Exception as e:
         print("bye")
+
+def finalClientRegister(connSock, name,connPort):
+    try:
+        header = struct.pack('>bbhh', 2, 1, len(name), 0)
+        connSock.send(header)
+        connSock.send(name.encode())
+        print("connected successfully to:", connPort)
+    except ConnectionAbortedError as e:
+        print("closed a connection")
+    except Exception as e:
+        pass
+
 
 def waitForMsg(sock):
     try:
         global serversForTimeCheck
-        while True:
+        while not stop_event.is_set():############
             incomingHeader = sock.recv(6)
             type, subtype, length, sublen = struct.unpack('>bbhh', incomingHeader)
             if type == 3:
@@ -45,18 +60,17 @@ def waitForMsg(sock):
                 print("Server list received.")
                 serversForTimeCheck = serversList
                 server_list_received.set()
+    except ConnectionAbortedError as e:
+        print("closed a connection")
     except Exception as e:
-        print("bye")
+        pass
 
 def checkTimeDiff(portList,sock):
-    try:#test try
+    try:
         print("Checking the connection time for each server.")
         rttResults={}
-        # minrtt=100000
         for server in portList:
-            #there was try here
             tempSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
-            
             tempSock.connect(('127.0.0.1', server))
             startTime=time.time()
             ping = struct.pack('>bbhh',5,1,0,0)
@@ -66,32 +80,15 @@ def checkTimeDiff(portList,sock):
             endTime=time.time()
             rtt=endTime-startTime
             rttResults[server]=rtt
-            # if rtt<=minrtt:
-            #     rttResults[0]=server
             tempSock.close()
         print(rttResults)
         minrtt=min(rttResults, key=rttResults.get)
         print("the server with min rtt is: ",minrtt)
-        remove=struct.pack('>bbhh',5,2,0,0)
-        sock.send(remove)
-        sock.send(clientName.encode())
-        sock.close()
-        finalSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
-        finalSock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        finalSock.connect(('127.0.0.1', minrtt))
-        clientRegister(finalSock,clientName,minrtt)
+        return minrtt
+    except ConnectionAbortedError as e:
+        print("closed a connection")
     except Exception as e:
-        print("bye")
-
-
-# Registering the client
-# header = struct.pack('>bbhh', 2, 1, len(clientName), 0)
-# sock.send(header)
-# sock.send(clientName.encode())
-# print("Connected successfully to:",chosenPort,".")
-# print("Asking my server for list.")
-# serverAsk = struct.pack('>bbhh', 5, 0, 0, 0)
-# sock.send(serverAsk)
+        pass
 
 clientRegister(sock,clientName,chosenPort)
 thread = threading.Thread(target=waitForMsg, args=(sock,))
@@ -100,9 +97,21 @@ thread.start()
 print("Waiting for server list...")
 server_list_received.wait()
 
-checkTimeDiff(serversForTimeCheck,sock)
-# print(serversForTimeCheck)
+minrtt=checkTimeDiff(serversForTimeCheck,sock)
+remove=struct.pack('>bbhh',5,2,0,0)
+sock.send(remove)
+sock.send(clientName.encode())
+stop_event.set() ############33 # Signal the thread to stop
+thread.join()################     # Wait for the thread to finish
+sock.close()
 
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
+sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+sock.connect(('127.0.0.1', minrtt))
+finalClientRegister(sock,clientName,minrtt)
+stop_event.clear()#########
+thread = threading.Thread(target=waitForMsg, args=(sock,))
+thread.start()
 while True:
     message = input()
     header = struct.pack('>bbhh', 3, 0, len(clientName) + len(message), len(clientName))

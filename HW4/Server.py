@@ -105,7 +105,7 @@ def respond_to_client(conn_socket, client_address):
                         print("Removing client", nameToRmv)
                         clients[nameToRmv].close()  # Close the client connection
                         del clients[nameToRmv]
-                        conn_socket.close()
+                        #conn_socket.close()
 
             if type==8:
                 incomingData = conn_socket.recv(4)
@@ -114,6 +114,8 @@ def respond_to_client(conn_socket, client_address):
                 dualPort = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
                 dualPort.connect(('127.0.0.1',portForUpdate))
                 myServerConnections[portForUpdate] = dualPort
+    except ConnectionAbortedError as e:
+        print("closed a connection")
     except Exception as e:
         pass
 
@@ -164,6 +166,7 @@ def actAsClient():
                 connectToOtherServers(portsToAdd)
                 print(list(myServerConnections.keys()),"\n")
                 break
+            
             except ConnectionRefusedError:
                 print(f'Connection failed to port: {port}')
 
