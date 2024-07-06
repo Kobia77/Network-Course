@@ -29,7 +29,8 @@ def clientRegister(connSock, name,connPort):
     except ConnectionAbortedError as e:
         print("closed a connection")
     except Exception as e:
-        print("bye")
+        pass
+        # print("bye")
 
 def finalClientRegister(connSock, name,connPort):
     try:
@@ -101,15 +102,15 @@ minrtt=checkTimeDiff(serversForTimeCheck,sock)
 remove=struct.pack('>bbhh',5,2,0,0)
 sock.send(remove)
 sock.send(clientName.encode())
-stop_event.set() ############33 # Signal the thread to stop
-thread.join()################     # Wait for the thread to finish
+stop_event.set()
+thread.join()
 sock.close()
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 sock.connect(('127.0.0.1', minrtt))
 finalClientRegister(sock,clientName,minrtt)
-stop_event.clear()#########
+stop_event.clear()
 thread = threading.Thread(target=waitForMsg, args=(sock,))
 thread.start()
 while True:
